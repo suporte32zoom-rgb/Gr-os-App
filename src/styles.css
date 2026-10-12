@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import "tailwindcss";
+
+:root {
+  --color-leaf: #2E7D32;
+  --color-leaf-dark: #1B5E20;
+  --color-leaf-light: #4CAF50;
+  --color-seed: #F57F17;
+  --color-seed-light: #FFB300;
+  --color-bg-rural: #F8F9FA;
+}
+
+/* Otimização de toque e leitura para produtores sob luz solar */
+button, select, input, a {
+  touch-action: manipulation;
+}
+
+/* Contraste aprimorado sob sol forte */
+.sunlight-mode {
+  filter: contrast(1.15) saturate(1.1);
+}
+
+/* Animação suave para troca de abas e modais */
+.fade-in {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Barra de rolagem discreta */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+

@@ -1,0 +1,6 @@
+{
+  "name": "Harvesta - Gestão Rural PWA",
+  "description": "Aplicativo PWA offline-first para produtores rurais familiares com caderno de campo, custos de safra, calculadora de margem por saca, clima e cotações agrícolas.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

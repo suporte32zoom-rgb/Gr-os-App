@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Harvesta - Gestão Rural & Caderno de Campo PWA</title>
+  <meta name="description" content="PWA offline-first para produtores rurais familiares. Gestão de custos, caderno de campo, calculadora de lucro e clima na roça.">
+
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#2E7D32">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Harvesta">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+  <!-- Tailwind CSS via CDN & Google Fonts -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button, select, input {
+      touch-action: manipulation;
+    }
+    .pb-safe {
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    }
+  </style>
+</head>
+<body class="bg-[#F8F9FA] text-zinc-900 min-h-screen flex flex-col pb-safe antialiased selection:bg-emerald-200">
+
+  <!-- Barra Superior / Header do Produtor -->
+  <header class="sticky top-0 z-40 bg-white border-b-2 border-zinc-200 shadow-xs px-4 py-3">
+    <div class="max-w-xl mx-auto flex items-center justify-between gap-2">
+      <!-- Marca & Logo -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2E7D32] to-[#1B5E20] flex items-center justify-center text-white shadow-sm border border-emerald-900/10">
+          <span class="material-icons text-2xl text-amber-300">eco</span>
+        </div>
+        <div>
+          <h1 class="text-xl font-black tracking-tight text-[#2E7D32] leading-none flex items-center gap-1">
+            HARVESTA
+            <span class="text-[10px] uppercase font-black bg-[#F57F17] text-white px-1.5 py-0.5 rounded tracking-wider">Agro</span>
+          </h1>
+          <p class="text-[11px] font-bold text-zinc-500 mt-0.5">Gestão Rural Familiar</p>
+        </div>
+      </div>
+
+      <!-- Ações do Topo: Status de Rede & Instalação -->
+      <div class="flex items-center gap-2">
+        <div id="badge-network-status" class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-xs font-bold text-emerald-800">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Online</span>
+        </div>
+
+        <!-- Botão Instalar PWA -->
+        <button id="btn-pwa-install" class="hidden px-3 py-1.5 rounded-xl bg-[#F57F17] hover:bg-amber-600 active:scale-95 text-white font-extrabold text-xs shadow-sm flex items-center gap-1 transition">
+          <span class="material-icons text-base">install_mobile</span>
+          <span>Instalar</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Seletor Rápido de Safra -->
+    <div class="max-w-xl mx-auto mt-2.5 pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-1 text-xs font-extrabold text-zinc-600 shrink-0">
+        <span class="material-icons text-sm text-[#2E7D32]">agriculture</span>
+        <span>SAFRA ATIVA:</span>
+      </div>
+      <div class="flex items-center gap-2 flex-1 max-w-[320px]">
+        <select id="select-safra-header" class="w-full bg-zinc-100 hover:bg-zinc-200 border-2 border-zinc-300 rounded-xl px-2.5 py-1.5 text-xs font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          <!-- Populado via app.js -->
+        </select>
+        <button onclick="window.harvesta.openModal('modal-nova-safra')" class="p-1.5 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-800 font-black text-xs shrink-0" title="Criar Nova Safra">
+          <span class="material-icons text-base">add</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal Dinâmico por Abas -->
+  <main class="flex-1 max-w-xl w-full mx-auto p-4">
+
+    <!-- ========================================== -->
+    <!-- ABA 1: DASHBOARD DE RESUMO -->
+    <!-- ========================================== -->
+    <section id="view-dashboard" class="tab-view space-y-4">
+      
+      <!-- Cartão Principal de Saldo da Safra -->
+      <div class="bg-white rounded-3xl p-5 border-2 border-zinc-200 shadow-sm relative overflow-hidden">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-black uppercase tracking-wider text-zinc-500">Saldo Estimado da Safra</span>
+          <span class="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900" id="dash-margem-bruta">0.0% Margem</span>
+        </div>
+
+        <div id="dash-saldo" class="text-3xl font-black text-[#2E7D32] tracking-tight my-1">
+          R$ 0,00
+        </div>
+        <p class="text-xs text-zinc-500 font-medium">Balanço líquido de receitas menos custos operacionais</p>
+
+        <!-- Grade de Receitas x Despesas em Alto Contraste -->
+        <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t-2 border-zinc-100">
+          <div class="bg-emerald-50/70 p-3.5 rounded-2xl border-2 border-emerald-200">
+            <div class="flex items-center gap-1.5 text-emerald-800 text-xs font-extrabold uppercase">
+              <span class="material-icons text-base">trending_up</span>
+              <span>Receitas (Colheita)</span>
+            </div>
+            <div id="dash-receita" class="text-xl font-black text-[#2E7D32] mt-1">R$ 0,00</div>
+          </div>
+
+          <div class="bg-red-50/70 p-3.5 rounded-2xl border-2 border-red-200">
+            <div class="flex items-center gap-1.5 text-red-800 text-xs font-extrabold uppercase">
+              <span class="material-icons text-base">trending_down</span>
+              <span>Despesas (Custos)</span>
+            </div>
+            <div id="dash-despesa" class="text-xl font-black text-red-600 mt-1">R$ 0,00</div>
+          </div>
+        </div>
+
+        <!-- Indicador de Custo por Hectare -->
+        <div class="mt-3 flex items-center justify-between text-xs font-bold text-zinc-600 bg-zinc-50 px-3 py-2 rounded-xl border border-zinc-200">
+          <span>Custo por Hectare:</span>
+          <span id="dash-custo-ha" class="font-black text-zinc-900">R$ 0,00 / ha</span>
+        </div>
+      </div>
+
+      <!-- Botões de Ação Rápida Táteis -->
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="window.harvesta.openModal('modal-novo-lancamento')" class="p-4 rounded-2xl bg-[#2E7D32] hover:bg-[#1B5E20] active:scale-95 text-white shadow-md flex items-center justify-center gap-2 font-black text-base transition">
+          <span class="material-icons text-2xl">add_circle</span>
+          <span>Lançar Gasto/Venda</span>
+        </button>
+
+        <button onclick="window.harvesta.switchTab('calculadora')" class="p-4 rounded-2xl bg-[#F57F17] hover:bg-amber-600 active:scale-95 text-white shadow-md flex items-center justify-center gap-2 font-black text-base transition">
+          <span class="material-icons text-2xl">calculate</span>
+          <span>Calcular Lucro</span>
+        </button>
+      </div>
+
+      <!-- Gráfico de Distribuição de Despesas por Insumo -->
+      <div id="dash-despesas-chart-container"></div>
+
+      <!-- Últimos Lançamentos do Caderno -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <h3 class="text-sm font-black uppercase tracking-wider text-zinc-700">Últimos Lançamentos</h3>
+          <button onclick="window.harvesta.switchTab('caderno')" class="text-xs font-black text-[#2E7D32] hover:underline flex items-center gap-0.5">
+            <span>Ver Caderno Completo</span>
+            <span class="material-icons text-sm">chevron_right</span>
+          </button>
+        </div>
+
+        <div id="dash-ultimos-lancamentos" class="space-y-2">
+          <!-- Populado via app.js -->
+        </div>
+      </div>
+
+      <!-- Atalho de Backup e Exportação -->
+      <div class="bg-zinc-100 p-3.5 rounded-2xl border border-zinc-200 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2 text-zinc-700 font-bold">
+          <span class="material-icons text-lg text-zinc-500">save_alt</span>
+          <span>Exportar dados do seu consultório de campo</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="window.harvesta.exportData('csv')" class="px-2.5 py-1.5 rounded-xl bg-white border border-zinc-300 font-black text-zinc-800 hover:bg-zinc-50 active:scale-95">CSV</button>
+          <button onclick="window.harvesta.exportData('json')" class="px-2.5 py-1.5 rounded-xl bg-white border border-zinc-300 font-black text-zinc-800 hover:bg-zinc-50 active:scale-95">Backup</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- ABA 2: CADERNO DE CAMPO DIGITAL -->
+    <!-- ========================================== -->
+    <section id="view-caderno" class="tab-view hidden space-y-4">
+      
+      <!-- Cabeçalho do Caderno com Botão Adicionar -->
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <h2 class="text-xl font-black text-zinc-900 leading-tight">Caderno de Campo</h2>
+          <p class="text-xs text-zinc-500 font-semibold">Registro de custos de insumos e vendas de safra</p>
+        </div>
+        <button onclick="window.harvesta.openModal('modal-novo-lancamento')" class="px-3.5 py-2.5 rounded-2xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-black text-sm flex items-center gap-1.5 shadow-sm active:scale-95 transition">
+          <span class="material-icons text-lg">add</span>
+          <span>Novo Registro</span>
+        </button>
+      </div>
+
+      <!-- Barra de Filtros e Busca Rápida -->
+      <div class="bg-white p-3.5 rounded-2xl border-2 border-zinc-200 space-y-2 shadow-xs">
+        <!-- Campo de busca de texto -->
+        <div class="relative">
+          <span class="material-icons absolute left-3 top-2.5 text-zinc-400 text-lg">search</span>
+          <input type="text" id="busca-caderno" placeholder="Buscar por descrição (adubo, diesel, sementes...)" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <!-- Filtro Cultura -->
+          <select id="filtro-caderno-cultura" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-800 focus:outline-none focus:border-[#2E7D32]">
+            <option value="todas">Todas as Culturas</option>
+            <option value="Soja">Soja</option>
+            <option value="Milho">Milho</option>
+            <option value="Café">Café</option>
+            <option value="Hortifrúti">Hortifrúti</option>
+            <option value="Leite">Leite / Pecuária</option>
+            <option value="Feijão">Feijão</option>
+          </select>
+
+          <!-- Filtro Tipo -->
+          <select id="filtro-caderno-tipo" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-800 focus:outline-none focus:border-[#2E7D32]">
+            <option value="todos">Entradas e Despesas</option>
+            <option value="receita">Apenas Entradas (Vendas)</option>
+            <option value="despesa">Apenas Saídas (Custos)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Lista de Registros -->
+      <div id="caderno-lista-lancamentos" class="space-y-3">
+        <!-- Populado via app.js -->
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- ABA 3: CALCULADORA DE LUCRO POR SACA -->
+    <!-- ========================================== -->
+    <section id="view-calculadora" class="tab-view hidden space-y-4">
+      
+      <div>
+        <h2 class="text-xl font-black text-zinc-900 leading-tight">Calculadora de Margem</h2>
+        <p class="text-xs text-zinc-500 font-semibold">Descubra seu Ponto de Equilíbrio e simule o lucro por saca e hectare</p>
+      </div>
+
+      <!-- Formulário de Simulação -->
+      <div class="bg-white p-5 rounded-3xl border-2 border-zinc-200 shadow-sm space-y-4">
+        
+        <div>
+          <label class="block text-xs font-extrabold uppercase tracking-wider text-zinc-600 mb-1">
+            Custo Total de Produção (R$)
+          </label>
+          <input type="number" id="calc-custo-total" value="92050" step="50" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-2xl px-3.5 py-3 text-lg font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          <span class="text-[11px] text-zinc-500 font-semibold block mt-1">Soma de adubo, veneno, sementes, combustível e maquinário.</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-zinc-600 mb-1">
+              Expectativa Total (Sacas)
+            </label>
+            <input type="number" id="calc-sacas" value="2700" step="10" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-2xl px-3.5 py-3 text-lg font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-zinc-600 mb-1">
+              Área Plantada (ha)
+            </label>
+            <input type="number" id="calc-hectares" value="45" step="1" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-2xl px-3.5 py-3 text-lg font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+        </div>
+
+        <!-- Preço de Venda Simulado -->
+        <div class="pt-2 border-t border-zinc-100">
+          <label class="block text-xs font-black uppercase tracking-wider text-[#2E7D32] mb-1">
+            Preço de Venda Simulado por Saca (R$)
+          </label>
+          <input type="number" id="calc-preco-venda" value="138" step="0.50" class="w-full bg-emerald-50/70 border-2 border-emerald-400 rounded-2xl px-3.5 py-3 text-xl font-black text-emerald-900 focus:outline-none focus:border-[#2E7D32]">
+          <span class="text-[11px] text-emerald-800 font-semibold block mt-1">Preço que a cooperativa ou cerealista está pagando hoje.</span>
+        </div>
+      </div>
+
+      <!-- Resultados Automáticos do Simulador -->
+      <div class="bg-gradient-to-br from-zinc-900 to-zinc-800 text-white p-5 rounded-3xl shadow-lg space-y-4">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-700">
+          <div>
+            <span class="text-xs uppercase font-black text-amber-400 tracking-wider">Ponto de Equilíbrio</span>
+            <p class="text-xs text-zinc-300">Custo Mínimo para não ter prejuízo</p>
+          </div>
+          <div id="res-custo-minimo" class="text-2xl font-black text-white">R$ 0,00 / sc</div>
+        </div>
+
+        <!-- Grade de Lucro -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-zinc-800/80 p-3.5 rounded-2xl border border-zinc-700">
+            <span class="text-xs text-zinc-400 font-bold uppercase block">Margem Líquida</span>
+            <div id="res-margem-pct" class="text-2xl font-black text-[#2E7D32]">0.0%</div>
+            <span id="res-lucro-saca" class="text-xs text-zinc-300 font-bold mt-1 block">R$ 0,00 por saca</span>
+          </div>
+
+          <div class="bg-zinc-800/80 p-3.5 rounded-2xl border border-zinc-700">
+            <span class="text-xs text-zinc-400 font-bold uppercase block">Lucro Líquido Total</span>
+            <div id="res-lucro-total" class="text-2xl font-black text-[#2E7D32]">R$ 0,00</div>
+            <span class="text-xs text-zinc-300 font-bold mt-1 block">No fechamento da safra</span>
+          </div>
+        </div>
+
+        <!-- Produtividade e Lucro por Hectare -->
+        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-700/60 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-400">Produtividade:</span>
+            <span id="res-prod-ha" class="font-bold text-white">0.0 sc/ha</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-400">Lucro / ha:</span>
+            <span id="res-lucro-ha" class="font-bold text-white">R$ 0,00 / ha</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- ABA 4: CLIMA & COTAÇÕES -->
+    <!-- ========================================== -->
+    <section id="view-clima" class="tab-view hidden space-y-4">
+      
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <h2 class="text-xl font-black text-zinc-900 leading-tight">Clima & Cotações</h2>
+          <p class="text-xs text-zinc-500 font-semibold">Previsão na roça e mercado físico agro</p>
+        </div>
+        <button id="btn-use-gps" class="px-3 py-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-[#2E7D32] font-black text-xs flex items-center gap-1 active:scale-95 transition">
+          <span class="material-icons text-base">my_location</span>
+          <span>Meu GPS</span>
+        </button>
+      </div>
+
+      <!-- Seletor de Município Polo -->
+      <div class="bg-white p-3.5 rounded-2xl border-2 border-zinc-200 flex items-center gap-2">
+        <span class="material-icons text-zinc-500 text-lg">location_city</span>
+        <select id="select-clima-cidade" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          <option value="0">Rio Verde - GO</option>
+          <option value="1">Sorriso - MT</option>
+          <option value="2">Cascavel - PR</option>
+          <option value="3">Ribeirão Preto - SP</option>
+          <option value="4">Patrocínio - MG</option>
+          <option value="5">Barreiras - BA</option>
+          <option value="6">Chapecó - SC</option>
+          <option value="7">Passo Fundo - RS</option>
+          <option value="8">Balsas - MA</option>
+        </select>
+      </div>
+
+      <!-- Card Clima em Tempo Real -->
+      <div id="card-clima-principal">
+        <!-- Renderizado pelo app.js via Open-Meteo -->
+      </div>
+
+      <!-- Seção de Cotações de Mercado Físico -->
+      <div class="space-y-2 pt-2">
+        <div class="flex items-center justify-between px-1">
+          <h3 class="text-sm font-black uppercase tracking-wider text-zinc-700">Cotações das Commodities</h3>
+          <span class="text-xs font-bold text-zinc-400">Cepea / B3 / Câmbio</span>
+        </div>
+
+        <div id="container-cotacoes-cards" class="space-y-2.5">
+          <!-- Populado via app.js -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- BARRA DE NAVEGAÇÃO INFERIOR FIXA (4 ABAS) -->
+  <!-- ========================================== -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-zinc-200 shadow-lg px-2 py-2">
+    <div class="max-w-xl mx-auto grid grid-cols-4 gap-1">
+      
+      <!-- 1. Dashboard -->
+      <button data-tab-target="dashboard" class="flex flex-col items-center justify-center py-1.5 rounded-xl transition text-[#2E7D32] font-bold active:scale-95">
+        <span class="material-icons text-2xl scale-110">dashboard</span>
+        <span class="text-[10px] uppercase tracking-tight mt-0.5">Resumo</span>
+      </button>
+
+      <!-- 2. Caderno de Campo -->
+      <button data-tab-target="caderno" class="flex flex-col items-center justify-center py-1.5 rounded-xl transition text-zinc-500 active:scale-95">
+        <span class="material-icons text-2xl">menu_book</span>
+        <span class="text-[10px] uppercase tracking-tight mt-0.5">Caderno</span>
+      </button>
+
+      <!-- 3. Calculadora -->
+      <button data-tab-target="calculadora" class="flex flex-col items-center justify-center py-1.5 rounded-xl transition text-zinc-500 active:scale-95">
+        <span class="material-icons text-2xl">calculate</span>
+        <span class="text-[10px] uppercase tracking-tight mt-0.5">Calculadora</span>
+      </button>
+
+      <!-- 4. Clima & Cotações -->
+      <button data-tab-target="clima" class="flex flex-col items-center justify-center py-1.5 rounded-xl transition text-zinc-500 active:scale-95">
+        <span class="material-icons text-2xl">wb_sunny</span>
+        <span class="text-[10px] uppercase tracking-tight mt-0.5">Clima & Preço</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- ========================================== -->
+  <!-- MODAL: NOVO LANÇAMENTO (GASTO OU VENDA) -->
+  <!-- ========================================== -->
+  <div id="modal-novo-lancamento" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border-2 border-zinc-200 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+        <h3 class="text-xl font-black text-zinc-900">Novo Lançamento no Caderno</h3>
+        <button onclick="window.harvesta.closeModal('modal-novo-lancamento')" class="text-zinc-400 hover:text-zinc-700 p-1">
+          <span class="material-icons text-2xl">close</span>
+        </button>
+      </div>
+
+      <form id="form-novo-lancamento" class="mt-4 space-y-4">
+        <!-- Tipo: Entrada ou Despesa -->
+        <div class="grid grid-cols-2 gap-2">
+          <label class="cursor-pointer">
+            <input type="radio" name="tipo" value="despesa" checked class="peer sr-only">
+            <div class="p-3 text-center rounded-2xl border-2 border-zinc-200 font-black text-sm text-zinc-600 peer-checked:border-red-600 peer-checked:bg-red-50 peer-checked:text-red-700 transition">
+              Despesa (Custo)
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="tipo" value="receita" class="peer sr-only">
+            <div class="p-3 text-center rounded-2xl border-2 border-zinc-200 font-black text-sm text-zinc-600 peer-checked:border-[#2E7D32] peer-checked:bg-emerald-50 peer-checked:text-[#2E7D32] transition">
+              Receita (Venda)
+            </div>
+          </label>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-zinc-700 mb-1">Descrição do Lançamento</label>
+          <input type="text" name="descricao" required placeholder="Ex: Adubo NPK, Óleo Diesel, Venda de 200 sc..." class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-zinc-700 mb-1">Valor Total (R$)</label>
+            <input type="number" name="valor" step="0.01" required placeholder="0,00" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3.5 py-2.5 text-base font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-zinc-700 mb-1">Data</label>
+            <input type="date" name="data" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-zinc-700 mb-1">Cultura</label>
+            <select name="cultura" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-2.5 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+              <option value="Soja">Soja</option>
+              <option value="Milho">Milho</option>
+              <option value="Café">Café</option>
+              <option value="Hortifrúti">Hortifrúti</option>
+              <option value="Leite">Leite / Gado</option>
+              <option value="Feijão">Feijão</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-zinc-700 mb-1">Categoria</label>
+            <select name="categoria" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-2.5 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+              <option value="Adubo & Fertilizante">Adubo & Fertilizante</option>
+              <option value="Sementes">Sementes</option>
+              <option value="Defensivos">Defensivos Químicos</option>
+              <option value="Combustível & Óleo">Combustível & Diesel</option>
+              <option value="Mão de Obra">Mão de Obra / Diária</option>
+              <option value="Manutenção de Máquinas">Manutenção de Máquinas</option>
+              <option value="Venda de Colheita">Venda de Colheita</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-zinc-700 mb-1">Observações ou Talhão (opcional)</label>
+          <input type="text" name="observacao" placeholder="Ex: Talhão 2, nota fiscal 1420..." class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+        </div>
+
+        <div class="pt-2 flex gap-3">
+          <button type="button" onclick="window.harvesta.closeModal('modal-novo-lancamento')" class="w-1/2 py-3 rounded-2xl bg-zinc-200 text-zinc-800 font-bold text-sm">Cancelar</button>
+          <button type="submit" class="w-1/2 py-3 rounded-2xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-black text-sm shadow-md active:scale-95 transition">Salvar Registro</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: NOVA SAFRA -->
+  <!-- ========================================== -->
+  <div id="modal-nova-safra" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+    <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border-2 border-zinc-200">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+        <h3 class="text-xl font-black text-zinc-900">Cadastrar Nova Safra</h3>
+        <button onclick="window.harvesta.closeModal('modal-nova-safra')" class="text-zinc-400 hover:text-zinc-700 p-1">
+          <span class="material-icons text-2xl">close</span>
+        </button>
+      </div>
+
+      <form id="form-nova-safra" class="mt-4 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-zinc-700 mb-1">Nome da Safra</label>
+          <input type="text" name="nome" required placeholder="Ex: Safra Soja 2025/2026" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-zinc-700 mb-1">Cultura Principal</label>
+            <select name="culturaPrincipal" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-2.5 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+              <option value="Soja">Soja</option>
+              <option value="Milho">Milho</option>
+              <option value="Café">Café</option>
+              <option value="Hortifrúti">Hortifrúti</option>
+              <option value="Leite">Leite / Pecuária</option>
+              <option value="Feijão">Feijão</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-zinc-700 mb-1">Área Total (ha)</label>
+            <input type="number" name="areaHectares" value="50" step="1" required class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+        </div>
+
+        <div class="pt-2 flex gap-3">
+          <button type="button" onclick="window.harvesta.closeModal('modal-nova-safra')" class="w-1/2 py-3 rounded-2xl bg-zinc-200 text-zinc-800 font-bold text-sm">Cancelar</button>
+          <button type="submit" class="w-1/2 py-3 rounded-2xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-black text-sm shadow-md active:scale-95 transition">Criar Safra</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 max-w-sm w-full px-4 pointer-events-none"></div>
+
+  <!-- Script Principal do PWA -->
+  <script src="app.js"></script>
+</body>
+</html>

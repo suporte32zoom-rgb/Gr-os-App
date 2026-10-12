@@ -1,0 +1,853 @@
+<!-- ========================================================================= -->
+<!-- HARVESTA - PWA OFFLINE-FIRST PARA PRODUTORES RURAIS FAMILIARES             -->
+<!-- ========================================================================= -->
+
+<div class="min-h-screen flex flex-col pb-24 bg-[#F8F9FA] text-zinc-900 selection:bg-emerald-200 selection:text-emerald-900">
+
+  <!-- ========================================================================= -->
+  <!-- BARRA SUPERIOR FIXA DO PRODUTOR                                           -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-40 bg-white border-b-2 border-zinc-200 shadow-xs px-4 py-3">
+    <div class="max-w-xl mx-auto flex items-center justify-between gap-2">
+      
+      <!-- Marca & Identidade Visual (Verde Folha #2E7D32 + Dourado Semente #F57F17) -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#2E7D32] to-[#1B5E20] flex items-center justify-center text-white shadow-md border border-emerald-900/10">
+          <mat-icon class="text-amber-300">eco</mat-icon>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5 leading-none">
+            <h1 class="text-xl font-black tracking-tight text-[#2E7D32]">HARVESTA</h1>
+            <span class="text-[10px] uppercase font-black bg-[#F57F17] text-white px-1.5 py-0.5 rounded tracking-wider shadow-xs">PWA</span>
+          </div>
+          <p class="text-[11px] font-bold text-zinc-500 mt-0.5">Gestão Rural & Lavoura</p>
+        </div>
+      </div>
+
+      <!-- Ações do Topo -->
+      <div class="flex items-center gap-2">
+        <!-- Indicador de Rede Online / Offline (Modo Lavoura) -->
+        @if (isOnline()) {
+          <div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-xs font-black text-emerald-800">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Online</span>
+          </div>
+        } @else {
+          <div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 border border-amber-400 text-xs font-black text-amber-900">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+            <span>Modo Roça</span>
+          </div>
+        }
+
+        <!-- Botão Instalar Aplicativo -->
+        @if (!isInstalled()) {
+          <button (click)="instalarPWA()" class="px-3 py-1.5 rounded-xl bg-[#F57F17] hover:bg-amber-600 active:scale-95 text-white font-black text-xs shadow-sm flex items-center gap-1 transition">
+            <mat-icon class="text-sm">install_mobile</mat-icon>
+            <span>Instalar</span>
+          </button>
+        }
+
+        <!-- Modal Exportar Código Hostinger / GitHub -->
+        <button (click)="showExportModal.set(true)" title="Código Hostinger / GitHub" class="p-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 active:scale-95 transition">
+          <mat-icon class="text-lg">cloud_upload</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Seletor Rápido de Safra Ativa -->
+    <div class="max-w-xl mx-auto mt-2.5 pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-1 text-xs font-black text-zinc-600 shrink-0">
+        <mat-icon class="text-sm text-[#2E7D32]">agriculture</mat-icon>
+        <span>SAFRA ATIVA:</span>
+      </div>
+      <div class="flex items-center gap-2 flex-1 max-w-[320px]">
+        <select [value]="activeSafraId()" (change)="trocarSafra($any($event.target).value)" class="w-full bg-zinc-100 hover:bg-zinc-200 border-2 border-zinc-300 rounded-xl px-2.5 py-1.5 text-xs font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          @for (s of safras(); track s.id) {
+            <option [value]="s.id">
+              {{ s.nome }} ({{ s.culturaPrincipal }} • {{ s.areaHectares }} ha)
+            </option>
+          }
+        </select>
+        <button (click)="showNovaSafraModal.set(true)" title="Criar Nova Safra" class="p-1.5 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-800 font-black text-xs shrink-0 active:scale-95 transition">
+          <mat-icon class="text-base">add</mat-icon>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- CONTEÚDO PRINCIPAL (4 ABAS)                                               -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 max-w-xl w-full mx-auto p-4 space-y-4">
+
+    <!-- ======================================================================= -->
+    <!-- 1. DASHBOARD DE RESUMO                                                  -->
+    <!-- ======================================================================= -->
+    @if (activeTab() === 'dashboard') {
+      <div class="space-y-4 fade-in">
+        
+        <!-- Cartão de Saldo da Safra Ativa -->
+        <div class="bg-white rounded-3xl p-5 border-2 border-zinc-200 shadow-sm relative overflow-hidden">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-black uppercase tracking-wider text-zinc-500">Saldo Estimado da Safra</span>
+            <span class="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900">
+              {{ margemBrutaPercentual() | number:'1.1-1' }}% Margem
+            </span>
+          </div>
+
+          <div class="text-3xl font-black tracking-tight my-1" [class.text-[#2E7D32]]="saldoEstimado() >= 0" [class.text-red-600]]="saldoEstimado() < 0">
+            {{ formatarMoeda(saldoEstimado()) }}
+          </div>
+          <p class="text-xs text-zinc-500 font-semibold">
+            Safra: {{ activeSafra().nome }} ({{ activeSafra().areaHectares }} hectares de {{ activeSafra().culturaPrincipal }})
+          </p>
+
+          <!-- Indicadores Visuais Verdes / Vermelhos Fáceis de Ler -->
+          <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t-2 border-zinc-100">
+            <!-- Receita Total -->
+            <div class="bg-emerald-50/70 p-3.5 rounded-2xl border-2 border-emerald-200">
+              <div class="flex items-center gap-1.5 text-emerald-800 text-xs font-extrabold uppercase">
+                <mat-icon class="text-base">trending_up</mat-icon>
+                <span>Receitas (Venda)</span>
+              </div>
+              <div class="text-xl font-black text-[#2E7D32] mt-1">
+                {{ formatarMoeda(receitaTotal()) }}
+              </div>
+            </div>
+
+            <!-- Despesa Total -->
+            <div class="bg-red-50/70 p-3.5 rounded-2xl border-2 border-red-200">
+              <div class="flex items-center gap-1.5 text-red-800 text-xs font-extrabold uppercase">
+                <mat-icon class="text-base">trending_down</mat-icon>
+                <span>Custos (Insumos)</span>
+              </div>
+              <div class="text-xl font-black text-red-600 mt-1">
+                {{ formatarMoeda(despesaTotal()) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Custo Operacional por Hectare -->
+          <div class="mt-3 flex items-center justify-between text-xs font-bold text-zinc-600 bg-zinc-50 px-3.5 py-2 rounded-xl border border-zinc-200">
+            <span>Custo Médio por Hectare:</span>
+            <span class="font-black text-zinc-900">{{ formatarMoeda(custoPorHectare()) }} / ha</span>
+          </div>
+        </div>
+
+        <!-- Botões de Ação Rápida Táteis e de Alto Contraste -->
+        <div class="grid grid-cols-2 gap-3">
+          <button (click)="showNovoLancamentoModal.set(true)" class="p-4 rounded-2xl bg-[#2E7D32] hover:bg-[#1B5E20] active:scale-95 text-white shadow-md flex items-center justify-center gap-2 font-black text-base transition">
+            <mat-icon class="text-2xl text-amber-300">add_circle</mat-icon>
+            <span>Novo Registro</span>
+          </button>
+
+          <button (click)="activeTab.set('calculadora')" class="p-4 rounded-2xl bg-[#F57F17] hover:bg-amber-600 active:scale-95 text-white shadow-md flex items-center justify-center gap-2 font-black text-base transition">
+            <mat-icon class="text-2xl">calculate</mat-icon>
+            <span>Simular Lucro</span>
+          </button>
+        </div>
+
+        <!-- Componente Recharts de Distribuição de Despesas por Insumo -->
+        <app-despesas-chart [data]="despesasPorCategoria()" />
+
+        <!-- Alerta de Clima Rápido no Dashboard -->
+        <button type="button" class="w-full text-left p-4 rounded-2xl bg-white border-2 border-zinc-200 shadow-sm flex items-center justify-between hover:border-emerald-500 transition active:scale-98" (click)="activeTab.set('clima')">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-emerald-100 text-[#2E7D32] flex items-center justify-center">
+              <mat-icon class="text-2xl">wb_sunny</mat-icon>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-black uppercase text-zinc-500">Clima em {{ selectedCity().nome }}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-black" [class]="analisePulverizacao().cor">
+                  {{ analisePulverizacao().status }}
+                </span>
+              </div>
+              <p class="text-xs text-zinc-600 font-semibold mt-0.5">{{ analisePulverizacao().motivo }}</p>
+            </div>
+          </div>
+          <mat-icon class="text-zinc-400">chevron_right</mat-icon>
+        </button>
+
+        <!-- Últimos Lançamentos Recentes -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-xs font-black uppercase tracking-wider text-zinc-600">Últimos Registros no Caderno</h3>
+            <button (click)="activeTab.set('caderno')" class="text-xs font-black text-[#2E7D32] hover:underline flex items-center gap-0.5">
+              <span>Abrir Caderno Completo</span>
+              <mat-icon class="text-sm">chevron_right</mat-icon>
+            </button>
+          </div>
+
+          @if (lancamentosDaSafra().length === 0) {
+            <div class="p-6 text-center text-zinc-500 bg-white rounded-2xl border border-zinc-200">
+              <mat-icon class="text-3xl text-zinc-300">note_add</mat-icon>
+              <p class="text-sm font-bold text-zinc-700 mt-1">Nenhum gasto ou receita registrado nesta safra.</p>
+              <p class="text-xs text-zinc-400">Toque no botão acima para adicionar o primeiro custo de semente ou adubo.</p>
+            </div>
+          } @else {
+            <div class="space-y-2">
+              @for (l of lancamentosDaSafra().slice(0, 4); track l.id) {
+                <div class="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold" [class.bg-emerald-100]="l.tipo === 'receita'" [class.text-emerald-800]="l.tipo === 'receita'" [class.bg-red-100]="l.tipo === 'despesa'" [class.text-red-800]="l.tipo === 'despesa'">
+                      <mat-icon class="text-xl">{{ l.tipo === 'receita' ? 'trending_up' : 'trending_down' }}</mat-icon>
+                    </div>
+                    <div>
+                      <p class="font-bold text-zinc-900 text-sm leading-tight">{{ l.descricao }}</p>
+                      <div class="flex items-center gap-1.5 text-[11px] text-zinc-500 mt-0.5">
+                        <span class="px-1.5 py-0.5 rounded bg-zinc-100 font-semibold">{{ l.categoria }}</span>
+                        <span>•</span>
+                        <span>{{ l.data }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <span class="font-black text-sm" [class.text-[#2E7D32]]="l.tipo === 'receita'" [class.text-red-600]="l.tipo === 'despesa'">
+                      {{ l.tipo === 'receita' ? '+' : '-' }} {{ formatarMoeda(l.valor) }}
+                    </span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Barra de Backup Rápido -->
+        <div class="bg-zinc-100 p-3.5 rounded-2xl border border-zinc-200 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2 text-zinc-700 font-bold">
+            <mat-icon class="text-base text-zinc-500">save_alt</mat-icon>
+            <span>Backup e Planilha</span>
+          </div>
+          <div class="flex gap-2">
+            <button (click)="exportarPlanilhaCsv()" class="px-2.5 py-1.5 rounded-xl bg-white border border-zinc-300 font-black text-zinc-800 hover:bg-zinc-50 active:scale-95 shadow-2xs">Planilha CSV</button>
+            <button (click)="exportarBackupJson()" class="px-2.5 py-1.5 rounded-xl bg-white border border-zinc-300 font-black text-zinc-800 hover:bg-zinc-50 active:scale-95 shadow-2xs">Backup JSON</button>
+          </div>
+        </div>
+
+      </div>
+    }
+
+    <!-- ======================================================================= -->
+    <!-- 2. CADERNO DE CAMPO DIGITAL                                             -->
+    <!-- ======================================================================= -->
+    @if (activeTab() === 'caderno') {
+      <div class="space-y-4 fade-in">
+        
+        <!-- Cabeçalho -->
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-xl font-black text-zinc-900 leading-tight">Caderno de Campo</h2>
+            <p class="text-xs text-zinc-500 font-semibold">Controle diário de compras de insumos e vendas</p>
+          </div>
+          <button (click)="showNovoLancamentoModal.set(true)" class="px-3.5 py-2.5 rounded-2xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-black text-sm flex items-center gap-1.5 shadow-sm active:scale-95 transition">
+            <mat-icon class="text-lg">add</mat-icon>
+            <span>Lançar</span>
+          </button>
+        </div>
+
+        <!-- Filtros e Busca -->
+        <div class="bg-white p-3.5 rounded-2xl border-2 border-zinc-200 space-y-2.5 shadow-xs">
+          <!-- Campo de Busca -->
+          <div class="relative">
+            <mat-icon class="absolute left-3 top-2.5 text-zinc-400 text-lg">search</mat-icon>
+            <input type="text" [value]="filtroBusca()" (input)="filtroBusca.set($any($event.target).value)" placeholder="Buscar por insumo (adubo, óleo, defensivo...)" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <!-- Filtro de Cultura -->
+            <select [value]="filtroCultura()" (change)="filtroCultura.set($any($event.target).value)" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-800 focus:outline-none focus:border-[#2E7D32]">
+              <option value="todas">Todas as Culturas</option>
+              <option value="Soja">Soja</option>
+              <option value="Milho">Milho</option>
+              <option value="Café">Café</option>
+              <option value="Hortifrúti">Hortifrúti</option>
+              <option value="Leite">Leite / Gado</option>
+              <option value="Feijão">Feijão</option>
+            </select>
+
+            <!-- Filtro de Tipo -->
+            <select [value]="filtroTipo()" (change)="filtroTipo.set($any($event.target).value)" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-2.5 py-2 text-xs font-bold text-zinc-800 focus:outline-none focus:border-[#2E7D32]">
+              <option value="todos">Entradas e Despesas</option>
+              <option value="receita">Apenas Entradas (Vendas)</option>
+              <option value="despesa">Apenas Saídas (Custos)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Lista de Lançamentos -->
+        <div class="space-y-3">
+          @if (lancamentosFiltrados().length === 0) {
+            <div class="p-8 text-center bg-white rounded-2xl border border-zinc-200">
+              <mat-icon class="text-4xl text-zinc-300">menu_book</mat-icon>
+              <p class="mt-2 font-bold text-zinc-700">Nenhum registro encontrado no filtro</p>
+              <p class="text-xs text-zinc-500">Tente ajustar a busca ou registre uma nova entrada/saída.</p>
+            </div>
+          } @else {
+            @for (l of lancamentosFiltrados(); track l.id) {
+              <div class="bg-white p-4 rounded-2xl border-2 border-zinc-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-start gap-3">
+                  <div class="w-12 h-12 rounded-xl flex items-center justify-center font-bold shrink-0" [class.bg-emerald-100]="l.tipo === 'receita'" [class.text-[#2E7D32]]="l.tipo === 'receita'" [class.bg-amber-100]="l.tipo === 'despesa'" [class.text-[#F57F17]]="l.tipo === 'despesa'">
+                    <mat-icon class="text-2xl">{{ l.tipo === 'receita' ? 'attach_money' : 'shopping_cart' }}</mat-icon>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-wider" [class.bg-emerald-600]="l.tipo === 'receita'" [class.text-white]="l.tipo === 'receita'" [class.bg-red-600]="l.tipo === 'despesa'" [class.text-white]="l.tipo === 'despesa'">
+                        {{ l.tipo === 'receita' ? 'Entrada / Venda' : 'Despesa / Custo' }}
+                      </span>
+                      <span class="px-2 py-0.5 rounded text-xs font-bold bg-zinc-100 text-zinc-700">
+                        {{ l.cultura }}
+                      </span>
+                      <span class="text-xs text-zinc-500 font-medium">
+                        {{ l.data }}
+                      </span>
+                    </div>
+                    <h4 class="font-black text-base text-zinc-900 mt-1">{{ l.descricao }}</h4>
+                    <p class="text-xs text-zinc-600 font-semibold">Categoria: {{ l.categoria }}</p>
+                    @if (l.observacao) {
+                      <p class="text-xs text-zinc-500 italic mt-0.5">"{{ l.observacao }}"</p>
+                    }
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100">
+                  <div class="text-left sm:text-right">
+                    <span class="text-[11px] font-bold text-zinc-500 block">Valor Líquido</span>
+                    <span class="text-lg font-black" [class.text-[#2E7D32]]="l.tipo === 'receita'" [class.text-red-600]="l.tipo === 'despesa'">
+                      {{ l.tipo === 'receita' ? '+' : '-' }} {{ formatarMoeda(l.valor) }}
+                    </span>
+                  </div>
+                  <button (click)="excluirLancamento(l.id)" title="Excluir Lançamento" class="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg active:scale-95 transition">
+                    <mat-icon class="text-xl">delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+          }
+        </div>
+
+      </div>
+    }
+
+    <!-- ======================================================================= -->
+    <!-- 3. CALCULADORA DE MARGEM POR SACA/UNIDADE                               -->
+    <!-- ======================================================================= -->
+    @if (activeTab() === 'calculadora') {
+      <div class="space-y-4 fade-in">
+        
+        <div>
+          <h2 class="text-xl font-black text-zinc-900 leading-tight">Calculadora de Margem</h2>
+          <p class="text-xs text-zinc-500 font-semibold">Calcule o ponto de equilíbrio e simule o lucro por saca e por hectare</p>
+        </div>
+
+        <!-- Formulário de Entrada da Simulação -->
+        <div class="bg-white p-5 rounded-3xl border-2 border-zinc-200 shadow-sm space-y-4">
+          
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="calc-custo-total" class="text-xs font-black uppercase tracking-wider text-zinc-700">
+                Custo Total de Produção (R$)
+              </label>
+              <button (click)="sincronizarCalculadoraComSafra()" class="text-[11px] font-black text-[#2E7D32] hover:underline flex items-center gap-0.5">
+                <mat-icon class="text-xs">sync</mat-icon>
+                <span>Puxar da Safra Ativa</span>
+              </button>
+            </div>
+            <input id="calc-custo-total" type="number" [value]="calcCustoTotal()" (input)="calcCustoTotal.set(+$any($event.target).value)" step="100" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-2xl px-3.5 py-3 text-lg font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+            <span class="text-[11px] text-zinc-500 font-semibold block mt-1">Soma de insumos, diesel, mão de obra e maquinário.</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="calc-sacas" class="block text-xs font-black uppercase tracking-wider text-zinc-700 mb-1">
+                Expectativa Total (Sacas)
+              </label>
+              <input id="calc-sacas" type="number" [value]="calcExpectativaSacas()" (input)="calcExpectativaSacas.set(+$any($event.target).value)" step="50" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-2xl px-3.5 py-3 text-lg font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+            </div>
+
+            <div>
+              <label for="calc-hectares" class="block text-xs font-black uppercase tracking-wider text-zinc-700 mb-1">
+                Área Plantada (ha)
+              </label>
+              <input id="calc-hectares" type="number" [value]="calcAreaHectares()" (input)="calcAreaHectares.set(+$any($event.target).value)" step="1" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-2xl px-3.5 py-3 text-lg font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+            </div>
+          </div>
+
+          <!-- Preço de Venda Simulado -->
+          <div class="pt-2 border-t border-zinc-100">
+            <div class="flex items-center justify-between mb-1">
+              <label for="calc-preco-venda" class="text-xs font-black uppercase tracking-wider text-[#2E7D32]">
+                Preço de Venda Simulado (R$/saca)
+              </label>
+              <div class="flex gap-1.5">
+                <button (click)="aplicarPrecoCenario(1.15)" class="px-2 py-0.5 rounded text-[10px] font-black bg-zinc-100 text-zinc-700 hover:bg-zinc-200">+15%</button>
+                <button (click)="aplicarPrecoCenario(1.30)" class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-[#2E7D32] hover:bg-emerald-200">+30%</button>
+                <button (click)="aplicarPrecoCenario(1.50)" class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-[#F57F17] hover:bg-amber-200">+50%</button>
+              </div>
+            </div>
+            <input id="calc-preco-venda" type="number" [value]="calcPrecoVendaSimulado()" (input)="calcPrecoVendaSimulado.set(+$any($event.target).value)" step="0.50" class="w-full bg-emerald-50/70 border-2 border-emerald-400 rounded-2xl px-3.5 py-3 text-xl font-black text-emerald-900 focus:outline-none focus:border-[#2E7D32]">
+            <span class="text-[11px] text-emerald-800 font-semibold block mt-1">Cotação que a cooperativa ou comprador está oferecendo.</span>
+          </div>
+        </div>
+
+        <!-- Resultados e Indicadores Visuais de Lucro -->
+        <div class="bg-gradient-to-br from-zinc-900 to-zinc-800 text-white p-5 rounded-3xl shadow-lg space-y-4">
+          
+          <div class="flex items-center justify-between pb-3 border-b border-zinc-700">
+            <div>
+              <span class="text-xs uppercase font-black text-amber-400 tracking-wider">Ponto de Equilíbrio</span>
+              <p class="text-xs text-zinc-300">Custo Mínimo por saca para cobrir despesas</p>
+            </div>
+            <div class="text-2xl font-black text-white">
+              {{ formatarMoeda(custoMinimoPorSaca()) }} / sc
+            </div>
+          </div>
+
+          <!-- Grade de Margem e Lucro Total -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-zinc-800/80 p-3.5 rounded-2xl border border-zinc-700">
+              <span class="text-xs text-zinc-400 font-bold uppercase block">Margem Líquida</span>
+              <div class="text-2xl font-black" [class.text-[#2E7D32]]="margemLucroPercentual() >= 0" [class.text-red-400]="margemLucroPercentual() < 0">
+                {{ margemLucroPercentual() | number:'1.1-1' }}%
+              </div>
+              <span class="text-xs font-bold mt-1 block" [class.text-emerald-300]="lucroPorSaca() >= 0" [class.text-red-300]="lucroPorSaca() < 0">
+                {{ formatarMoeda(lucroPorSaca()) }} por saca
+              </span>
+            </div>
+
+            <div class="bg-zinc-800/80 p-3.5 rounded-2xl border border-zinc-700">
+              <span class="text-xs text-zinc-400 font-bold uppercase block">Lucro Líquido Total</span>
+              <div class="text-2xl font-black" [class.text-[#2E7D32]]="lucroTotalSimulado() >= 0" [class.text-red-400]="lucroTotalSimulado() < 0">
+                {{ formatarMoeda(lucroTotalSimulado()) }}
+              </div>
+              <span class="text-xs text-zinc-300 font-bold mt-1 block">No fechamento da colheita</span>
+            </div>
+          </div>
+
+          <!-- Produtividade e Lucro por Hectare -->
+          <div class="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-700/60 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-zinc-400">Produtividade Estimada:</span>
+              <span class="font-bold text-white">{{ produtividadeScHa() | number:'1.1-1' }} sc/ha</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-zinc-400">Lucro por Hectare:</span>
+              <span class="font-bold text-white">{{ formatarMoeda(lucroPorHectareSimulado()) }} / ha</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    }
+
+    <!-- ======================================================================= -->
+    <!-- 4. CLIMA & COTAÇÕES                                                     -->
+    <!-- ======================================================================= -->
+    @if (activeTab() === 'clima') {
+      <div class="space-y-4 fade-in">
+        
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-xl font-black text-zinc-900 leading-tight">Clima & Cotações</h2>
+            <p class="text-xs text-zinc-500 font-semibold">Previsão na roça e mercado físico agro</p>
+          </div>
+          <button (click)="usarGps()" class="px-3 py-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-[#2E7D32] font-black text-xs flex items-center gap-1 active:scale-95 transition">
+            <mat-icon class="text-base">my_location</mat-icon>
+            <span>Meu GPS</span>
+          </button>
+        </div>
+
+        <!-- Seletor de Polo Agrícola -->
+        <div class="bg-white p-3.5 rounded-2xl border-2 border-zinc-200 flex items-center gap-2 shadow-2xs">
+          <mat-icon class="text-zinc-500 text-lg">location_city</mat-icon>
+          <select [value]="selectedCity().nome" (change)="selectedCity.set(polosAgricolas[$any($event.target).selectedIndex]); buscarClima()" class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+            @for (p of polosAgricolas; track p.nome) {
+              <option [value]="p.nome">{{ p.nome }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Card de Clima em Tempo Real -->
+        @if (weatherData(); as w) {
+          @let cur = w.current;
+          @let daily = w.daily;
+          <div class="p-5 bg-gradient-to-br from-[#2E7D32] to-[#1B5E20] text-white rounded-3xl shadow-md space-y-4">
+            
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <mat-icon class="text-amber-300 text-lg">place</mat-icon>
+                  <h3 class="text-xl font-black">{{ selectedCity().nome }}</h3>
+                </div>
+                <p class="text-xs text-emerald-200 mt-0.5">Previsão em Tempo Real (Open-Meteo Satélite)</p>
+              </div>
+              <div class="text-right">
+                <span class="text-4xl font-black">{{ cur.temperature_2m | number:'1.0-0' }}°C</span>
+                <span class="text-xs text-emerald-200 block">Sensação {{ cur.apparent_temperature | number:'1.0-0' }}°C</span>
+              </div>
+            </div>
+
+            <!-- Janela de Pulverização Inteligente -->
+            <div class="p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <mat-icon class="text-xl text-amber-300">{{ analisePulverizacao().icon }}</mat-icon>
+                <div>
+                  <p class="text-[11px] text-emerald-100 font-bold uppercase tracking-wider">Janela de Pulverização</p>
+                  <p class="text-sm font-extrabold text-white">{{ analisePulverizacao().status }}</p>
+                </div>
+              </div>
+              <span class="text-xs text-emerald-100 text-right max-w-[170px]">{{ analisePulverizacao().motivo }}</span>
+            </div>
+
+            <!-- Métricas Agro: Umidade, Vento e Chuva -->
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="p-2.5 rounded-xl bg-white/10 border border-white/10">
+                <mat-icon class="text-emerald-200 text-lg">water_drop</mat-icon>
+                <span class="text-xs block text-emerald-200 font-semibold">Umidade</span>
+                <span class="text-base font-black">{{ cur.relative_humidity_2m }}%</span>
+              </div>
+              <div class="p-2.5 rounded-xl bg-white/10 border border-white/10">
+                <mat-icon class="text-emerald-200 text-lg">air</mat-icon>
+                <span class="text-xs block text-emerald-200 font-semibold">Vento</span>
+                <span class="text-base font-black">{{ cur.wind_speed_10m }} km/h</span>
+              </div>
+              <div class="p-2.5 rounded-xl bg-white/10 border border-white/10">
+                <mat-icon class="text-emerald-200 text-lg">cloud</mat-icon>
+                <span class="text-xs block text-emerald-200 font-semibold">Chuva Hoje</span>
+                <span class="text-base font-black">{{ daily ? daily.precipitation_sum[0] : 0 }} mm</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Previsão dos Próximos 5 Dias -->
+          <div class="bg-white p-4 rounded-2xl border-2 border-zinc-200 shadow-sm">
+            <h4 class="font-black text-xs text-zinc-700 uppercase tracking-wider mb-3">Previsão dos Próximos 5 Dias</h4>
+            <div class="divide-y divide-zinc-100">
+              @for (dia of daily.time.slice(1, 6); track dia; let idx = $index) {
+                <div class="py-2.5 flex items-center justify-between text-sm">
+                  <span class="font-bold text-zinc-800 w-16">{{ dia }}</span>
+                  <div class="flex items-center gap-1.5 text-zinc-600">
+                    <span class="text-xs font-black text-blue-600 flex items-center gap-0.5">
+                      <mat-icon class="text-sm">water_drop</mat-icon>
+                      {{ daily.precipitation_probability_max[idx + 1] }}% ({{ daily.precipitation_sum[idx + 1] }}mm)
+                    </span>
+                  </div>
+                  <div class="text-right font-black">
+                    <span class="text-zinc-900">{{ daily.temperature_2m_max[idx + 1] | number:'1.0-0' }}°</span>
+                    <span class="text-zinc-400 font-normal"> / {{ daily.temperature_2m_min[idx + 1] | number:'1.0-0' }}°</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="p-8 text-center bg-white rounded-2xl border border-zinc-200">
+            <mat-icon class="text-3xl text-zinc-400 animate-spin">refresh</mat-icon>
+            <p class="text-sm font-bold text-zinc-600 mt-2">Carregando dados meteorológicos da lavoura...</p>
+          </div>
+        }
+
+        <!-- Seção de Cotações das Commodities -->
+        <div class="space-y-2 pt-2">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-xs font-black uppercase tracking-wider text-zinc-700">Cotações das Commodities</h3>
+            <span class="text-xs font-bold text-zinc-400">Cepea / B3 / AwesomeAPI</span>
+          </div>
+
+          <div class="space-y-2.5">
+            @for (c of cotacoes(); track c.cultura) {
+              <div class="bg-white p-4 rounded-2xl border-2 border-zinc-200 shadow-sm flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-xl bg-emerald-50 text-[#2E7D32] flex items-center justify-center shrink-0">
+                    <mat-icon class="text-2xl">{{ c.icon }}</mat-icon>
+                  </div>
+                  <div>
+                    <h4 class="font-black text-zinc-900 text-base leading-tight">{{ c.cultura }}</h4>
+                    <p class="text-xs text-zinc-500 mt-0.5">{{ c.praca }}</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-xl font-black text-zinc-900">
+                    {{ formatarMoeda(c.valor) }}
+                  </div>
+                  <div class="flex items-center justify-end gap-0.5 text-xs font-bold" [class.text-emerald-700]="c.var >= 0" [class.text-red-600]="c.var < 0">
+                    <mat-icon class="text-sm">{{ c.var >= 0 ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
+                    <span>{{ c.var >= 0 ? '+' : '' }}{{ c.var | number:'1.2-2' }}%</span>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+      </div>
+    }
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- BARRA DE NAVEGAÇÃO INFERIOR FIXA (4 ABAS)                                 -->
+  <!-- ========================================================================= -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-zinc-200 shadow-lg px-2 py-2">
+    <div class="max-w-xl mx-auto grid grid-cols-4 gap-1">
+      
+      <!-- 1. Dashboard -->
+      <button (click)="activeTab.set('dashboard')" class="flex flex-col items-center justify-center py-1.5 rounded-xl transition active:scale-95" [class.text-[#2E7D32]]="activeTab() === 'dashboard'" [class.font-black]="activeTab() === 'dashboard'" [class.text-zinc-500]="activeTab() !== 'dashboard'">
+        <mat-icon class="text-2xl" [class.scale-110]="activeTab() === 'dashboard'">dashboard</mat-icon>
+        <span class="text-[10px] uppercase tracking-tight mt-0.5">Resumo</span>
+      </button>
+
+      <!-- 2. Caderno de Campo -->
+      <button (click)="activeTab.set('caderno')" class="flex flex-col items-center justify-center py-1.5 rounded-xl transition active:scale-95" [class.text-[#2E7D32]]="activeTab() === 'caderno'" [class.font-black]="activeTab() === 'caderno'" [class.text-zinc-500]="activeTab() !== 'caderno'">
+        <mat-icon class="text-2xl" [class.scale-110]="activeTab() === 'caderno'">menu_book</mat-icon>
+        <span class="text-[10px] uppercase tracking-tight mt-0.5">Caderno</span>
+      </button>
+
+      <!-- 3. Calculadora de Lucro -->
+      <button (click)="activeTab.set('calculadora')" class="flex flex-col items-center justify-center py-1.5 rounded-xl transition active:scale-95" [class.text-[#2E7D32]]="activeTab() === 'calculadora'" [class.font-black]="activeTab() === 'calculadora'" [class.text-zinc-500]="activeTab() !== 'calculadora'">
+        <mat-icon class="text-2xl" [class.scale-110]="activeTab() === 'calculadora'">calculate</mat-icon>
+        <span class="text-[10px] uppercase tracking-tight mt-0.5">Calculadora</span>
+      </button>
+
+      <!-- 4. Clima & Cotações -->
+      <button (click)="activeTab.set('clima')" class="flex flex-col items-center justify-center py-1.5 rounded-xl transition active:scale-95" [class.text-[#2E7D32]]="activeTab() === 'clima'" [class.font-black]="activeTab() === 'clima'" [class.text-zinc-500]="activeTab() !== 'clima'">
+        <mat-icon class="text-2xl" [class.scale-110]="activeTab() === 'clima'">wb_sunny</mat-icon>
+        <span class="text-[10px] uppercase tracking-tight mt-0.5">Clima & Preço</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: NOVO LANÇAMENTO                                                    -->
+  <!-- ========================================================================= -->
+  @if (showNovoLancamentoModal()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border-2 border-zinc-200 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+          <h3 class="text-xl font-black text-zinc-900">Novo Registro no Caderno</h3>
+          <button (click)="showNovoLancamentoModal.set(false)" class="text-zinc-400 hover:text-zinc-700 p-1">
+            <mat-icon class="text-2xl">close</mat-icon>
+          </button>
+        </div>
+
+        <form [formGroup]="lancamentoForm" (ngSubmit)="salvarNovoLancamento()" class="mt-4 space-y-4">
+          <!-- Tipo: Entrada ou Despesa -->
+          <div class="grid grid-cols-2 gap-2">
+            <label class="cursor-pointer">
+              <input type="radio" formControlName="tipo" value="despesa" class="peer sr-only">
+              <div class="p-3 text-center rounded-2xl border-2 border-zinc-200 font-black text-sm text-zinc-600 peer-checked:border-red-600 peer-checked:bg-red-50 peer-checked:text-red-700 transition">
+                Despesa (Custo)
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" formControlName="tipo" value="receita" class="peer sr-only">
+              <div class="p-3 text-center rounded-2xl border-2 border-zinc-200 font-black text-sm text-zinc-600 peer-checked:border-[#2E7D32] peer-checked:bg-emerald-50 peer-checked:text-[#2E7D32] transition">
+                Receita (Venda)
+              </div>
+            </label>
+          </div>
+
+          <div>
+            <label for="form-lanc-descricao" class="block text-xs font-bold text-zinc-700 mb-1">Descrição</label>
+            <input id="form-lanc-descricao" type="text" formControlName="descricao" placeholder="Ex: Adubo NPK 04-14-08, Óleo Diesel, Venda de soja..." class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="form-lanc-valor" class="block text-xs font-bold text-zinc-700 mb-1">Valor Total (R$)</label>
+              <input id="form-lanc-valor" type="number" formControlName="valor" step="0.01" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3.5 py-2.5 text-base font-black text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+            </div>
+
+            <div>
+              <label for="form-lanc-data" class="block text-xs font-bold text-zinc-700 mb-1">Data</label>
+              <input id="form-lanc-data" type="date" formControlName="data" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="form-lanc-cultura" class="block text-xs font-bold text-zinc-700 mb-1">Cultura</label>
+              <select id="form-lanc-cultura" formControlName="cultura" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-2.5 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+                <option value="Soja">Soja</option>
+                <option value="Milho">Milho</option>
+                <option value="Café">Café</option>
+                <option value="Hortifrúti">Hortifrúti</option>
+                <option value="Leite">Leite / Gado</option>
+                <option value="Feijão">Feijão</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="form-lanc-categoria" class="block text-xs font-bold text-zinc-700 mb-1">Categoria</label>
+              <select id="form-lanc-categoria" formControlName="categoria" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-2.5 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+                <option value="Adubo & Fertilizante">Adubo & Fertilizante</option>
+                <option value="Sementes">Sementes</option>
+                <option value="Defensivos">Defensivos Químicos</option>
+                <option value="Combustível & Óleo">Combustível & Diesel</option>
+                <option value="Mão de Obra">Mão de Obra / Diária</option>
+                <option value="Manutenção de Máquinas">Manutenção de Máquinas</option>
+                <option value="Venda de Colheita">Venda de Colheita</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label for="form-lanc-obs" class="block text-xs font-bold text-zinc-700 mb-1">Observações ou Talhão (opcional)</label>
+            <input id="form-lanc-obs" type="text" formControlName="observacao" placeholder="Ex: Talhão 2, nota fiscal 1420..." class="w-full bg-zinc-50 border border-zinc-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+
+          <div class="pt-2 flex gap-3">
+            <button type="button" (click)="showNovoLancamentoModal.set(false)" class="w-1/2 py-3 rounded-2xl bg-zinc-200 text-zinc-800 font-bold text-sm">Cancelar</button>
+            <button type="submit" class="w-1/2 py-3 rounded-2xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-black text-sm shadow-md active:scale-95 transition">Salvar Registro</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: NOVA SAFRA                                                         -->
+  <!-- ========================================================================= -->
+  @if (showNovaSafraModal()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border-2 border-zinc-200">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+          <h3 class="text-xl font-black text-zinc-900">Cadastrar Nova Safra</h3>
+          <button (click)="showNovaSafraModal.set(false)" class="text-zinc-400 hover:text-zinc-700 p-1">
+            <mat-icon class="text-2xl">close</mat-icon>
+          </button>
+        </div>
+
+        <form [formGroup]="safraForm" (ngSubmit)="salvarNovaSafra()" class="mt-4 space-y-4">
+          <div>
+            <label for="form-safra-nome" class="block text-xs font-bold text-zinc-700 mb-1">Nome da Safra</label>
+            <input id="form-safra-nome" type="text" formControlName="nome" placeholder="Ex: Safra Soja 2025/2026" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="form-safra-cultura" class="block text-xs font-bold text-zinc-700 mb-1">Cultura Principal</label>
+              <select id="form-safra-cultura" formControlName="culturaPrincipal" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-2.5 py-2.5 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+                <option value="Soja">Soja</option>
+                <option value="Milho">Milho</option>
+                <option value="Café">Café</option>
+                <option value="Hortifrúti">Hortifrúti</option>
+                <option value="Leite">Leite / Gado</option>
+                <option value="Feijão">Feijão</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="form-safra-area" class="block text-xs font-bold text-zinc-700 mb-1">Área Total (ha)</label>
+              <input id="form-safra-area" type="number" formControlName="areaHectares" step="1" class="w-full bg-zinc-50 border-2 border-zinc-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-zinc-900 focus:outline-none focus:border-[#2E7D32]">
+            </div>
+          </div>
+
+          <div class="pt-2 flex gap-3">
+            <button type="button" (click)="showNovaSafraModal.set(false)" class="w-1/2 py-3 rounded-2xl bg-zinc-200 text-zinc-800 font-bold text-sm">Cancelar</button>
+            <button type="submit" class="w-1/2 py-3 rounded-2xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-black text-sm shadow-md active:scale-95 transition">Criar Safra</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: GUIA DE INSTALAÇÃO IOS                                             -->
+  <!-- ========================================================================= -->
+  @if (showIOSGuide()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border-2 border-zinc-200 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-[#2E7D32] flex items-center justify-center mx-auto mb-3">
+          <mat-icon class="text-3xl">ios_share</mat-icon>
+        </div>
+        <h3 class="text-lg font-black text-zinc-900">Instalar no iPhone / iPad</h3>
+        <div class="text-xs text-zinc-600 mt-2 space-y-2 text-left bg-zinc-50 p-4 rounded-2xl border border-zinc-200">
+          <p>1. Toque no botão <strong>Compartilhar</strong> (ícone com quadrado e seta) na barra inferior do Safari.</p>
+          <p>2. Role a lista para baixo e selecione <strong>Adicionar à Tela de Início</strong>.</p>
+          <p>3. Toque em <strong>Adicionar</strong> no canto superior direito.</p>
+        </div>
+        <button (click)="showIOSGuide.set(false)" class="mt-4 w-full py-3 rounded-2xl bg-[#2E7D32] text-white font-black text-sm">Entendi</button>
+      </div>
+    </div>
+  }
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: CÓDIGO FONTE HOSTINGER / GITHUB                                    -->
+  <!-- ========================================================================= -->
+  @if (showExportModal()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-2xl rounded-3xl p-6 shadow-2xl border-2 border-zinc-200 max-h-[90vh] flex flex-col">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+          <div>
+            <h3 class="text-xl font-black text-zinc-900 flex items-center gap-2">
+              <mat-icon class="text-[#2E7D32]">cloud_upload</mat-icon>
+              <span>Exportar Código (Hostinger / GitHub)</span>
+            </h3>
+            <p class="text-xs text-zinc-500 font-semibold">Os 4 arquivos prontos para subir na sua hospedagem web</p>
+          </div>
+          <button (click)="showExportModal.set(false)" class="text-zinc-400 hover:text-zinc-700 p-1">
+            <mat-icon class="text-2xl">close</mat-icon>
+          </button>
+        </div>
+
+        <!-- Seletor de Arquivo -->
+        <div class="flex items-center gap-2 mt-4 overflow-x-auto pb-1 border-b border-zinc-200">
+          <button (click)="exportTab.set('index')" class="px-3 py-1.5 rounded-xl text-xs font-black transition" [class.bg-[#2E7D32]]="exportTab() === 'index'" [class.text-white]="exportTab() === 'index'" [class.bg-zinc-100]="exportTab() !== 'index'">
+            1. index.html
+          </button>
+          <button (click)="exportTab.set('app')" class="px-3 py-1.5 rounded-xl text-xs font-black transition" [class.bg-[#2E7D32]]="exportTab() === 'app'" [class.text-white]="exportTab() === 'app'" [class.bg-zinc-100]="exportTab() !== 'app'">
+            2. app.js
+          </button>
+          <button (click)="exportTab.set('sw')" class="px-3 py-1.5 rounded-xl text-xs font-black transition" [class.bg-[#2E7D32]]="exportTab() === 'sw'" [class.text-white]="exportTab() === 'sw'" [class.bg-zinc-100]="exportTab() !== 'sw'">
+            3. sw.js
+          </button>
+          <button (click)="exportTab.set('manifest')" class="px-3 py-1.5 rounded-xl text-xs font-black transition" [class.bg-[#2E7D32]]="exportTab() === 'manifest'" [class.text-white]="exportTab() === 'manifest'" [class.bg-zinc-100]="exportTab() !== 'manifest'">
+            4. manifest.json
+          </button>
+        </div>
+
+        <!-- Explicação Rápida de Hospedagem -->
+        <div class="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 font-semibold">
+          <strong>Como subir na Hostinger:</strong> No Gerenciador de Arquivos da Hostinger (pasta <code>public_html/</code>), envie estes 4 arquivos mais a pasta com o <code>icon.svg</code>. Seu PWA estará 100% no ar e instalável!
+        </div>
+
+        <!-- Área de Download Rápido dos Arquivos -->
+        <div class="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between">
+          <span class="text-xs font-bold text-zinc-600">Baixar diretamente no celular ou computador:</span>
+          <div class="flex gap-2">
+            <a href="/standalone-index.html" download="index.html" class="px-3 py-2 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-black text-xs flex items-center gap-1 shadow-sm">
+              <mat-icon class="text-sm">download</mat-icon>
+              <span>Baixar index.html</span>
+            </a>
+            <a href="/app.js" download="app.js" class="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-900 text-white font-black text-xs flex items-center gap-1 shadow-sm">
+              <mat-icon class="text-sm">download</mat-icon>
+              <span>Baixar app.js</span>
+            </a>
+            <a href="/sw.js" download="sw.js" class="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-900 text-white font-black text-xs flex items-center gap-1 shadow-sm">
+              <mat-icon class="text-sm">download</mat-icon>
+              <span>sw.js</span>
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  }
+
+  <!-- ========================================================================= -->
+  <!-- TOAST DE NOTIFICAÇÃO                                                      -->
+  <!-- ========================================================================= -->
+  @if (toast()) {
+    <div class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl text-sm font-black transition-all animate-bounce" [class.bg-[#2E7D32]]="toast()!.type === 'success'" [class.text-white]="toast()!.type === 'success'" [class.bg-amber-600]="toast()!.type === 'warning'" [class.bg-red-700]="toast()!.type === 'error'" [class.bg-zinc-900]="toast()!.type === 'info'">
+      <mat-icon class="text-base">
+        {{ toast()!.type === 'success' ? 'check_circle' : toast()!.type === 'warning' ? 'warning' : 'info' }}
+      </mat-icon>
+      <span>{{ toast()!.message }}</span>
+    </div>
+  }
+
+</div>
